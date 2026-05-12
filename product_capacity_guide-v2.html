@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Capacity Planning Guide for Product — ERP / Workday CEDO</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* ── RESET & BASE ─────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background: #F0F4F9;
+    color: #1A1A1A;
+    min-height: 100vh;
+    padding-bottom: 64px;
+  }
+
+  /* ── QUARTERLY DATA — EDIT THESE EACH QUARTER ─────
+     Update the numbers below after each quarter's
+     Jira export. All values come from the Q1 Baseline
+     tab in the Flow Metrics Excel workbook.
+     -------------------------------------------------- */
+
+  /* Values are applied via the JS DATA object below  */
+
+  /* ── LAYOUT ───────────────────────────────────────── */
+  .header {
+    background: #1B2A4A;
+    padding: 36px 40px 32px;
+    margin-bottom: 32px;
+  }
+  .header-inner { max-width: 920px; margin: 0 auto; }
+  .eyebrow {
+    font-size: 11px; font-family: monospace;
+    color: #C9A84C; letter-spacing: 0.15em;
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  .header h1 {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: 30px; font-weight: 400; color: #fff;
+    line-height: 1.25; margin-bottom: 12px;
+  }
+  .header h1 span { color: #C9A84C; }
+  .header-sub {
+    font-size: 13px; color: #94A3B8; line-height: 1.7;
+    max-width: 640px;
+  }
+  .main { max-width: 920px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── TAB NAV ──────────────────────────────────────── */
+  .tab-nav {
+    display: flex; gap: 4px; margin-bottom: 24px;
+    background: #E2E8F0; border-radius: 8px; padding: 4px;
+  }
+  .tab-btn {
+    flex: 1; padding: 9px 12px; border-radius: 6px;
+    border: none; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    font-size: 12px; font-weight: 500; transition: all 0.2s;
+    background: transparent; color: #666;
+  }
+  .tab-btn.active {
+    background: #1B2A4A; color: #fff; font-weight: 600;
+  }
+
+  /* ── SECTION HEADINGS ─────────────────────────────── */
+  .section-title {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: 20px; font-weight: 400; color: #1B2A4A; margin-bottom: 6px;
+  }
+  .section-sub {
+    font-size: 12px; color: #666; line-height: 1.7; margin-bottom: 20px;
+  }
+
+  /* ── LANE CARDS ───────────────────────────────────── */
+  .lane-cards { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+  .lane-card {
+    border-radius: 8px; background: #FAFBFC;
+    border: 1.5px solid #E2E8F0; overflow: hidden;
+  }
+  .lane-card-header {
+    padding: 16px 20px; cursor: pointer;
+    display: flex; align-items: flex-start; gap: 16px;
+  }
+  .lane-icon {
+    width: 40px; height: 40px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: #fff; font-weight: 700;
+    font-size: 11px; font-family: monospace;
+  }
+  .lane-meta { flex: 1; min-width: 0; }
+  .lane-name {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: 15px; color: #1B2A4A; margin-bottom: 4px;
+  }
+  .lane-stats { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; }
+  .stat-item { display: flex; flex-direction: column; }
+  .stat-label { font-size: 10px; color: #888; margin-bottom: 1px; }
+  .stat-value { font-size: 18px; font-weight: 800; font-family: 'DM Serif Display', serif; color: #1B2A4A; }
+  .stat-value.highlight { /* color set inline */ }
+
+  .split-bar-wrap { margin-bottom: 4px; }
+  .split-bar-label {
+    font-size: 10px; color: #888; margin-bottom: 4px;
+    display: flex; justify-content: space-between;
+  }
+  .split-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }
+  .split-bar-legend { display: flex; gap: 16px; margin-top: 4px; }
+  .legend-item { font-size: 9px; }
+
+  .lane-card-body {
+    padding: 0 20px 16px 76px;
+    border-top: 1px solid #E2E8F020;
+    display: none;
+  }
+  .lane-card-body.open { display: block; }
+  .lead-time-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 16px; margin-bottom: 12px; margin-top: 12px;
+  }
+  .lt-box { border-radius: 6px; padding: 12px; }
+  .lt-box-label { font-size: 10px; color: #888; margin-bottom: 4px; }
+  .lt-box-value {
+    font-size: 22px; font-weight: 800;
+    font-family: 'DM Serif Display', serif;
+  }
+  .lt-box-value span { font-size: 12px; font-weight: 400; }
+  .lt-box-note { font-size: 10px; color: #888; margin-top: 4px; }
+  .lane-components { font-size: 10px; color: #666; line-height: 1.6; }
+  .lane-note { margin-top: 6px; font-style: italic; font-size: 10px; }
+
+  /* ── CAPACITY SUMMARY BAR ─────────────────────────── */
+  .summary-bar {
+    background: #1B2A4A; border-radius: 8px;
+    padding: 16px 20px; display: flex; gap: 20px;
+    flex-wrap: wrap; align-items: center;
+  }
+  .summary-main { flex: 1; min-width: 200px; }
+  .summary-label { font-size: 11px; color: #94A3B8; margin-bottom: 4px; }
+  .summary-value {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px; font-weight: 400; color: #C9A84C;
+  }
+  .summary-breakdown { font-size: 11px; color: #64748B; margin-top: 2px; }
+  .summary-note { font-size: 12px; color: #94A3B8; max-width: 340px; line-height: 1.6; }
+
+  /* ── FORECAST CALCULATOR ──────────────────────────── */
+  .calc-box {
+    background: #FAFBFC; border: 1.5px solid #E2E8F0;
+    border-radius: 10px; padding: 24px;
+  }
+  .calc-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px; color: #1B2A4A; margin-bottom: 4px;
+  }
+  .calc-sub { font-size: 12px; color: #666; line-height: 1.5; margin-bottom: 16px; }
+  .calc-inputs {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin-bottom: 20px;
+  }
+  .calc-field label {
+    display: block; font-size: 11px; font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .calc-field input {
+    width: 100%; padding: 8px 12px; border-radius: 6px;
+    border: 1.5px solid #E2E8F0; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; outline: none; background: #fff;
+    transition: border-color 0.2s;
+  }
+  .calc-field input:focus { border-color: #1B2A4A; }
+  .calc-results { display: flex; flex-direction: column; gap: 10px; }
+  .result-card {
+    border-radius: 8px; padding: 12px 16px;
+    border-left-width: 4px; border-left-style: solid;
+    border-top: 1px solid transparent;
+    border-right: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+  }
+  .result-top {
+    display: flex; justify-content: space-between;
+    align-items: flex-start; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;
+  }
+  .result-lane { font-weight: 700; font-size: 13px; color: #1B2A4A; }
+  .result-rate { font-size: 12px; color: #666; margin-left: 8px; }
+  .result-status { font-size: 11px; font-weight: 700; text-align: right; }
+  .result-metrics {
+    display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 8px;
+  }
+  .result-metric .label { font-size: 10px; color: #888; }
+  .result-metric .value {
+    font-size: 20px; font-weight: 800;
+    font-family: 'DM Serif Display', serif; color: #1B2A4A;
+  }
+  .result-metric .value span { font-size: 11px; font-weight: 400; }
+  .progress-track {
+    height: 8px; border-radius: 4px; overflow: hidden; background: #E8ECF2;
+  }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+  .calc-empty {
+    text-align: center; padding: 24px 0; color: #94A3B8;
+    font-size: 13px; font-style: italic;
+  }
+  .calc-note {
+    margin-top: 16px; background: #FDF6E3;
+    border: 1px solid #C9A84C44; border-radius: 8px;
+    padding: 14px 18px; font-size: 12px; color: #666; line-height: 1.7;
+  }
+
+  /* ── PATTERNS TABLE ───────────────────────────────── */
+  .patterns-table { width: 100%; border-collapse: collapse; font-size: 12px; overflow-x: auto; }
+  .patterns-table th {
+    padding: 10px 14px; text-align: left; color: #fff;
+    background: #1B2A4A; font-weight: 600; font-size: 11px; white-space: nowrap;
+  }
+  .patterns-table td { padding: 12px 14px; }
+  .patterns-table tr:nth-child(even) { background: #FAFBFC; }
+  .patterns-table tr:nth-child(odd) { background: #fff; }
+  .pattern-name { font-weight: 600; color: #1B2A4A; }
+  .big-number {
+    font-size: 15px; font-weight: 800;
+    font-family: 'DM Serif Display', serif; color: #1B2A4A;
+  }
+  .unit { font-size: 10px; color: #888; }
+  .var-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 12px;
+    font-size: 10px; font-weight: 700; white-space: nowrap;
+  }
+  .table-wrap { overflow-x: auto; }
+  .bd-note {
+    margin-top: 16px; background: #E8F5F0;
+    border: 1px solid #1F6E5C33; border-radius: 8px;
+    padding: 14px 18px; font-size: 12px; color: #1F6E5C; line-height: 1.7;
+  }
+
+  /* ── CONCEPT CARDS ────────────────────────────────── */
+  .concept-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px; margin-bottom: 20px;
+  }
+  .concept-card {
+    background: #FAFBFC; border: 1px solid #E2E8F0;
+    border-radius: 8px; padding: 18px 20px;
+  }
+  .concept-icon { font-size: 22px; margin-bottom: 8px; }
+  .concept-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 14px; color: #1B2A4A; margin-bottom: 6px;
+  }
+  .concept-body { font-size: 12px; color: #555; line-height: 1.7; }
+  .summary-banner {
+    background: #1B2A4A; border-radius: 8px; padding: 20px 24px;
+  }
+  .summary-banner-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 16px; color: #C9A84C; margin-bottom: 10px;
+  }
+  .summary-banner-body { font-size: 13px; color: #CBD5E1; line-height: 1.8; }
+
+  /* ── UPDATE FOOTER ────────────────────────────────── */
+  .update-footer {
+    margin-top: 32px; padding: 16px 20px;
+    background: #fff; border: 1px solid #E2E8F0;
+    border-radius: 8px; font-size: 11px; color: #888;
+    line-height: 1.6;
+  }
+  .update-footer strong { color: #1B2A4A; }
+
+  /* ── RESPONSIVE ───────────────────────────────────── */
+  @media (max-width: 600px) {
+    .header { padding: 24px 20px; }
+    .calc-inputs { grid-template-columns: 1fr; }
+    .concept-grid { grid-template-columns: 1fr; }
+    .lead-time-grid { grid-template-columns: 1fr; }
+    .tab-btn { font-size: 10px; padding: 8px 6px; }
+  }
+</style>
+</head>
+<body>
+
+<script>
+/* ================================================================
+   QUARTERLY DATA — UPDATE THESE VALUES EACH QUARTER
+   Source: Q1 Baseline tab in the Flow Metrics Excel workbook.
+   One block per lane. Change the numbers, save, re-paste into Confluence.
+   ================================================================ */
+const DATA = {
+  quarterLabel: "Rolling 90 Days (Q1-Q2 2026: Feb 06, 2026 - May 07, 2026)",
+  quarterNote: "KLC quarters: Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec. This window spans Q1 and Q2 2026. Update each quarter end by pulling latest 90 days from Jira.",
+  totalInitiativeAvailable: 170,
+  totalTickets: 403,
+  attributionNote: "Totals include specialist skill-map attribution of previously untagged tickets. Cross-Cutting revised significantly once security access work was attributed.",
+
+  lanes: [
+    {
+      id: "hcm",
+      name: "HCM",
+      full: "Human Capital Management",
+      total: 173,
+      support: 77,
+      supportPct: 45,
+      available: 96,
+      weeklyRate: 12,
+      medianDays: 9,
+      p85Days: 44,
+      color: "#1F6E5C",
+      light: "#E8F5F0",
+      components: "Core HCM, Recruiting, Talent, Benefits, Compensation, Time Tracking, Absence Management",
+      note: null,
+    },
+    {
+      id: "fin",
+      name: "FIN",
+      full: "Finance",
+      total: 74,
+      support: 39,
+      supportPct: 53,
+      available: 35,
+      weeklyRate: 6,
+      medianDays: 4,
+      p85Days: 39,
+      color: "#1F4E8C",
+      light: "#E8EEF8",
+      components: "Financial Accounting, FDM, AP, Supplier Accounts, Expenses, Adaptive Planning, Procurement",
+      note: null,
+    },
+    {
+      id: "payroll",
+      name: "Payroll",
+      full: "Payroll",
+      total: 27,
+      support: 7,
+      supportPct: 26,
+      available: 20,
+      weeklyRate: 1,
+      medianDays: 21,
+      p85Days: 52,
+      color: "#7B3F9E",
+      light: "#F0E8F8",
+      components: "Domestic Payroll, Tax, Garnishment",
+      note: null,
+    },
+    {
+      id: "cc",
+      name: "CC",
+      full: "Cross-Cutting",
+      total: 127,
+      support: 108,
+      supportPct: 85,
+      available: 19,
+      weeklyRate: 4,
+      medianDays: 1,
+      p85Days: 4,
+      color: "#9E5C1B",
+      light: "#F8F0E8",
+      components: "IT-WD Security, IT Integrations, Tech Reporting, IT Other",
+      note: "84% of Cross-Cutting capacity is support work -- primarily security access requests. Reserve Cross-Cutting capacity explicitly in every epic that touches security, integrations, or reporting. It is not included in HCM or FIN lane totals.",
+    },
+  ],
+
+  patterns: [
+    { name: "Security Access Request",  q1: 43,  median: 1,  p85: 9,  variability: "High",     structure: "Single ticket",      typical: "1",    range: "1",    countNote: "Each access request is 1 ticket. Batch security projects are a separate initiative -- clarify at intake." },
+    { name: "Configuration Change",     q1: 38,  median: 11, p85: 40, variability: "Moderate", structure: "Depends on scope",   typical: "2-5",  range: "1-10", countNote: "Standalone config change is 1 ticket. Initiative-level configuration generates 3-8. Ask at intake." },
+    { name: "Report / Dashboard",       q1: 53,  median: 3,  p85: 37, variability: "High",     structure: "Depends on scope",   typical: "1-13", range: "1-15", countNote: "A single report build is 1 ticket. A reporting initiative generated 13 historically. Clarify scope." },
+    { name: "Year End Processing",      q1: 31,  median: 4,  p85: 29, variability: "High",     structure: "Initiative",         typical: "8-12", range: "2-20", countNote: "Full YE cycle generates 8-12 tickets. Budget 10 as your planning baseline." },
+    { name: "EIB / Mass Upload",        q1: 18,  median: 9,  p85: 30, variability: "Moderate", structure: "Single ticket",      typical: "1-3",  range: "1-5",  countNote: "Simple upload is 1 ticket. Uploads requiring template build or error correction are 2-5." },
+    { name: "Compensation Change",      q1: 12,  median: 1,  p85: 14, variability: "Moderate", structure: "Small cluster",      typical: "3",    range: "2-7",  countNote: "Merit cycle generates 3-7 tickets. A one-off pay change is 1-2. Ask: annual cycle or individual?" },
+    { name: "I-9 Processing",           q1: 7,   median: 12, p85: 28, variability: "Moderate", structure: "Initiative",         typical: "5-9",  range: "1-9",  countNote: "Near-annual event. Generates 5-9 tickets. Use 7 as your planning baseline." },
+    { name: "Payroll Processing",       q1: 10,  median: 2,  p85: 28, variability: "High",     structure: "Small cluster",      typical: "3",    range: "2-9",  countNote: "Payroll initiatives average 3 tickets. Support epics can reach 9. W-2 work is counted under Year End." },
+    { name: "Data Correction / Fix",    q1: 9,   median: 4,  p85: 28, variability: "Moderate", structure: "Single ticket",      typical: "1-2",  range: "1-4",  countNote: "Most corrections are 1 ticket. Root cause issues requiring config changes can generate 2-4." },
+    { name: "Procurement / AP",         q1: 5,   median: 3,  p85: 14, variability: "Moderate", structure: "Small cluster",      typical: "5",    range: "3-7",  countNote: "Assessment-level work generated 5 tickets. Ongoing supplier maintenance is 1-2 tickets." },
+  ],
+};
+/* ================================================================
+   END OF QUARTERLY DATA — Do not edit below this line
+   unless making a structural change to the layout.
+   ================================================================ */
+
+const VAR = {
+  High:       { bg: "#FDE8E8", color: "#8B1A1A", label: "High Variability" },
+  Moderate:   { bg: "#FEF3DC", color: "#8B5E00", label: "Moderate" },
+  Consistent: { bg: "#E8F5EE", color: "#1A6B3A", label: "Consistent" },
+};
+
+/* ── STATE ──────────────────────────────────────────── */
+let activeTab = "capacity";
+let openLane  = null;
+let calcInputs = {};
+
+/* ── RENDER ─────────────────────────────────────────── */
+function render() {
+  document.getElementById("app").innerHTML = buildApp();
+  attachEvents();
+}
+
+function buildApp() {
+  return `
+    <div class="header">
+      <div class="header-inner">
+        <div class="eyebrow">ERP / Workday — Center Employee Digital Ops</div>
+        <h1>Capacity Planning Guide<br><span>for Product</span></h1>
+        <p class="header-sub">
+          This guide replaces story point velocity with throughput-based forecasting.
+          Instead of estimating effort per ticket, you estimate how many tickets an
+          initiative will generate — then the data handles the rest.
+          Based on ${DATA.quarterLabel}: ${DATA.lanes.reduce((s,l)=>s+l.total,0)} completed tickets across 12 weeks.
+        </p>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="tab-nav">
+        ${["capacity","forecast","patterns","sizing","concepts"].map(t => `
+          <button class="tab-btn ${activeTab===t?'active':''}" data-tab="${t}">
+            ${{capacity:"Lane Capacity",forecast:"Forecast Calculator",patterns:"Request Patterns",sizing:"Initiative Sizing",concepts:"Key Concepts"}[t]}
+          </button>`).join("")}
+      </div>
+
+      ${activeTab==="capacity"  ? buildCapacity()  : ""}
+      ${activeTab==="forecast"  ? buildForecast()  : ""}
+      ${activeTab==="patterns"  ? buildPatterns()  : ""}
+      ${activeTab==="sizing"   ? buildSizing()   : ""}
+      ${activeTab==="concepts"  ? buildConcepts()  : ""}
+
+      <div class="update-footer">
+        <strong>Maintaining this page:</strong>
+        After each quarter's Jira export, update the numbers in the DATA block at the top of this file's source.
+        All values come from the Q1 Baseline tab in the Flow Metrics Excel workbook — one number per lane per field.
+        Re-paste the updated file into the Confluence HTML macro and publish.
+        Last updated: ${DATA.quarterLabel}. Update at end of each KLC quarter by pulling latest 90 days from Jira.
+      </div>
+    </div>
+  `;
+}
+
+/* ── CAPACITY TAB ───────────────────────────────────── */
+function buildCapacity() {
+  const cards = DATA.lanes.map(lane => {
+    const isOpen = openLane === lane.id;
+    const availPct = 100 - lane.supportPct;
+    return `
+      <div class="lane-card" style="border-left:4px solid ${lane.color}">
+        <div class="lane-card-header" data-lane="${lane.id}">
+          <div class="lane-icon" style="background:${lane.color}">${lane.name}</div>
+          <div class="lane-meta">
+            <div class="lane-name">${lane.full}</div>
+            <div class="lane-stats">
+              <div class="stat-item">
+                <span class="stat-label">Q1 Completed</span>
+                <span class="stat-value">${lane.total}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Available for Initiatives</span>
+                <span class="stat-value" style="color:${lane.color}">${lane.available}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Per Week</span>
+                <span class="stat-value">${lane.weeklyRate} tickets</span>
+              </div>
+            </div>
+            <div class="split-bar-wrap">
+              <div class="split-bar-label">
+                <span>Capacity split — Support ${lane.supportPct}% / Available ${availPct}%</span>
+              </div>
+              <div class="split-bar">
+                <div style="width:${lane.supportPct}%;background:#CBD5E1;border-radius:4px 0 0 4px"></div>
+                <div style="width:${availPct}%;background:${lane.color};border-radius:0 4px 4px 0"></div>
+              </div>
+              <div class="split-bar-legend">
+                <span class="legend-item" style="color:#94A3B8">&#9632; Support reserve (${lane.support} tickets)</span>
+                <span class="legend-item" style="color:${lane.color}">&#9632; Initiative capacity (${lane.available} tickets)</span>
+              </div>
+            </div>
+            <div style="font-size:10px;color:#888;margin-top:6px">${isOpen?"&#9650;":"&#9660;"} click to ${isOpen?"hide":"see"} lead time detail</div>
+          </div>
+        </div>
+        <div class="lane-card-body ${isOpen?"open":""}">
+          <div class="lead-time-grid">
+            <div class="lt-box" style="background:${lane.light}">
+              <div class="lt-box-label">Typical completion (median)</div>
+              <div class="lt-box-value" style="color:${lane.color}">${lane.medianDays} <span>business days</span></div>
+              <div class="lt-box-note">Half of all tickets close within this time</div>
+            </div>
+            <div class="lt-box" style="background:#1B2A4A08">
+              <div class="lt-box-label">Planning commitment (85% of the time)</div>
+              <div class="lt-box-value" style="color:#1B2A4A">${lane.p85Days} <span>business days</span></div>
+              <div class="lt-box-note">Use this number for roadmap commitments</div>
+            </div>
+          </div>
+          <div class="lane-components">
+            <strong>Components:</strong> ${lane.components}
+            ${lane.note ? `<div class="lane-note" style="color:${lane.color}">${lane.note}</div>` : ""}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  const totalAvail = DATA.lanes.reduce((s,l)=>s+l.available,0);
+  const breakdown  = DATA.lanes.map(l=>`${l.name} ${l.available}`).join(" + ");
+
+  return `
+    <div class="section-title">What each lane can take on this quarter</div>
+    <p class="section-sub">
+      Each lane's total Q1 throughput is split between support work (non-discretionary, arrives regardless
+      of PI commitments) and initiative-available capacity. The available number is your planning ceiling.
+      Click any lane to see lead time detail.
+    </p>
+    <div class="lane-cards">${cards}</div>
+    <div class="summary-bar">
+      <div class="summary-main">
+        <div class="summary-label">Total initiative-available capacity (all lanes)</div>
+        <div class="summary-value">${totalAvail} tickets</div>
+        <div class="summary-breakdown">${breakdown}</div>
+      </div>
+      <div class="summary-note">
+        This is the ceiling for PI-committed initiative work before the quarter begins. Revised upward from 137 after specialist skill-map attribution recovered 26 additional initiative-available tickets from the previously untagged pool. Cross-Cutting items must be reserved separately in every epic -- they are not covered by HCM or FIN lane totals.
+      </div>
+    </div>
+  `;
+}
+
+/* ── FORECAST TAB ───────────────────────────────────── */
+function buildForecast() {
+  const inputs = DATA.lanes.map(lane => `
+    <div class="calc-field">
+      <label style="color:${lane.color}">${lane.name} — ${lane.available} tickets available this quarter</label>
+      <input type="number" min="0" placeholder="Enter ticket count"
+             id="input-${lane.id}" value="${calcInputs[lane.id]||""}"
+             oninput="handleInput('${lane.id}', this.value)" />
+    </div>
+  `).join("");
+
+  const hasAny = DATA.lanes.some(l => calcInputs[l.id] && parseInt(calcInputs[l.id]) > 0);
+  const results = hasAny ? DATA.lanes.map(lane => {
+    const n = parseInt(calcInputs[lane.id]) || 0;
+    if (!n) return "";
+    const weeks   = Math.ceil(n / lane.weeklyRate);
+    const pct     = Math.round((n / lane.available) * 100);
+    const over    = n > lane.available;
+    const risk    = !over && n > lane.available * 0.85;
+    const bg      = over ? "#FDE8E8" : risk ? "#FEF3DC" : "#E8F5EE";
+    const border  = over ? "#8B1A1A" : risk ? "#8B5E00" : "#1A6B3A";
+    const status  = over
+      ? "Over capacity — reduce scope or defer to next quarter"
+      : risk ? "At risk — less than 15% buffer remaining"
+      : "Within capacity";
+    const remain  = Math.max(0, lane.available - n);
+    return `
+      <div class="result-card" style="background:${bg};border-left-color:${border}">
+        <div class="result-top">
+          <div>
+            <span class="result-lane">${lane.full}</span>
+            <span class="result-rate">${n} tickets at ${lane.weeklyRate}/week</span>
+          </div>
+          <div class="result-status" style="color:${border}">${status}</div>
+        </div>
+        <div class="result-metrics">
+          <div class="result-metric">
+            <div class="label">Weeks to complete</div>
+            <div class="value">${weeks} <span>of 13 available</span></div>
+          </div>
+          <div class="result-metric">
+            <div class="label">Capacity used</div>
+            <div class="value" style="color:${border}">${Math.min(pct,100)}%</div>
+          </div>
+          <div class="result-metric">
+            <div class="label">Tickets remaining after commit</div>
+            <div class="value">${remain}</div>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" style="width:${Math.min(pct,100)}%;background:${border}"></div>
+        </div>
+      </div>
+    `;
+  }).join("") : `<div class="calc-empty">Enter ticket counts above to see your capacity forecast</div>`;
+
+  return `
+    <div class="section-title">How to size a commitment before the quarter starts</div>
+    <p class="section-sub">
+      For each initiative entering PI Planning, estimate the total number of tickets it will generate
+      based on comparable past work in the Request Patterns tab. Enter those counts below.
+      The calculator shows whether they fit within available capacity and how many weeks they will take.
+    </p>
+    <div class="calc-box">
+      <div class="calc-title">Quarterly Forecast Calculator</div>
+      <p class="calc-sub">Available capacity is after support reserve is subtracted from Q1 actuals.</p>
+      <div class="calc-inputs">${inputs}</div>
+      <div class="calc-results">${results}</div>
+    </div>
+    <div class="calc-note">
+      <strong style="color:#1B2A4A">How to read the results:</strong>
+      Green means the commitment fits with buffer remaining.
+      Amber means you are within 15% of the ceiling — workable but no room for mid-quarter additions.
+      Red means the lane cannot absorb the committed work in 13 weeks at current throughput.
+      Red is a conversation to have at PI Planning, not a surprise to discover mid-quarter.
+    </div>
+  `;
+}
+
+/* ── PATTERNS TAB ───────────────────────────────────── */
+function buildPatterns() {
+  const rows = DATA.patterns.map((p, i) => {
+    const v = VAR[p.variability] || VAR.Moderate;
+    return `
+      <tr>
+        <td class="pattern-name">${p.name}</td>
+        <td style="text-align:center;color:#555">${p.q1}</td>
+        <td style="text-align:center"><span class="big-number">${p.median}</span> <span class="unit">BD</span></td>
+        <td style="text-align:center"><span class="big-number">${p.p85}</span> <span class="unit">BD</span></td>
+        <td style="text-align:center">
+          <span class="var-badge" style="background:${v.bg};color:${v.color}">${v.label}</span>
+        </td>
+        <td style="font-size:11px;color:#666">${p.note}</td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <div class="section-title">How long familiar work historically takes</div>
+    <p class="section-sub">
+      These patterns are derived from your team's actual completed tickets. Use them to estimate ticket counts
+      and lead times when sizing initiatives. The median is what usually happens.
+      The 85% number is what to commit to externally. High variability patterns have a wide gap between
+      those two numbers — always plan to the 85% number for those.
+    </p>
+    <div class="table-wrap">
+      <table class="patterns-table">
+        <thead>
+          <tr>
+            <th>Request Type</th>
+            <th>Q1 Count</th>
+            <th>Typical (Median)</th>
+            <th>85% of the time completes within</th>
+            <th>Variability</th>
+            <th>Planning note</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="bd-note">
+      <strong>BD = Business Days</strong> — weekdays only, no weekends.
+      A ticket that opens on Monday and closes the following Monday is 5 BD, not 7.
+    </div>
+  `;
+}
+
+
+/* ── SIZING TAB ─────────────────────────────────────────── */
+function buildSizing() {
+  const STRUCT_STYLE = {
+    "Single ticket":    { bg: "#E8F5EE", color: "#1A6B3A", label: "Single ticket" },
+    "Small cluster":    { bg: "#FEF3DC", color: "#8B5E00", label: "Small cluster" },
+    "Initiative":       { bg: "#FDE8E8", color: "#8B1A1A", label: "Initiative" },
+    "Depends on scope": { bg: "#EEF2F7", color: "#1B2A4A", label: "Clarify at intake" },
+  };
+
+  const rows = DATA.patterns.map((p, i) => {
+    const ss = STRUCT_STYLE[p.structure] || STRUCT_STYLE["Depends on scope"];
+    return `
+      <tr style="background:${i%2===0?"#FAFBFC":"#fff"}">
+        <td style="padding:12px 14px;font-weight:600;color:#1B2A4A;font-size:12px">${p.name}</td>
+        <td style="padding:12px 14px;text-align:center">
+          <span style="background:${ss.bg};color:${ss.color};padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;white-space:nowrap">${ss.label}</span>
+        </td>
+        <td style="padding:12px 14px;text-align:center;font-size:18px;font-weight:800;font-family:'DM Serif Display',serif;color:#1B2A4A">${p.typical}</td>
+        <td style="padding:12px 14px;text-align:center;font-size:12px;color:#666">${p.range}</td>
+        <td style="padding:12px 14px;font-size:11px;color:#555">${p.countNote}</td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <div class="section-title">How many tickets does each initiative type generate?</div>
+    <p class="section-sub">
+      Use this table when estimating ticket counts for the Forecast Calculator.
+      These ranges are derived from actual completed epics and ticket clusters in your Jira data.
+      The typical count is your starting estimate. Adjust up or down based on scope signals at intake.
+    </p>
+
+    <div style="background:#1B2A4A;border-radius:8px;padding:16px 20px;margin-bottom:20px;display:flex;gap:24px;flex-wrap:wrap">
+      ${[
+        ["Single ticket","#E8F5EE","#1A6B3A","One Jira ticket per request. Do not multiply."],
+        ["Small cluster","#FEF3DC","#8B5E00","2-9 tickets. Scope is bounded and predictable."],
+        ["Initiative","#FDE8E8","#8B1A1A","10+ tickets or high variability. Confirm scope before committing."],
+        ["Clarify at intake","#EEF2F7","#1B2A4A","Scope determines ticket count. Always ask before estimating."],
+      ].map(([label, bg, color, desc]) => `
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="background:${bg};color:${color};padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;white-space:nowrap">${label}</span>
+          <span style="font-size:11px;color:#94A3B8">${desc}</span>
+        </div>
+      `).join("")}
+    </div>
+
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="background:#1B2A4A">
+            ${["Request Type","Request Structure","Typical Count","Count Range","Guidance"].map(h =>
+              `<th style="padding:10px 14px;text-align:left;color:#fff;font-size:11px;font-weight:600;white-space:nowrap">${h}</th>`
+            ).join("")}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:16px;background:#FDF6E3;border:1px solid #C9A84C44;border-radius:8px;padding:14px 18px;font-size:12px;color:#666;line-height:1.7">
+      <strong style="color:#1B2A4A">How to use this at PI Planning:</strong>
+      Find the request type that best matches your initiative. Take the typical count as your starting estimate.
+      Enter that number in the Forecast Calculator tab to see whether it fits within lane capacity.
+      If the initiative is larger or more complex than the typical case, adjust upward toward the range maximum.
+      If the intake conversation reveals a narrower scope than the typical case, adjust downward.
+      When in doubt, flag it for a brief scoping conversation with the ADL before committing.
+    </div>
+  `;
+}
+
+/* ── CONCEPTS TAB ───────────────────────────────────── */
+function buildConcepts() {
+  const cards = [
+    { icon: "🎫", title: "Ticket count replaces story points",
+      body: "Instead of estimating effort on every ticket, estimate how many tickets an epic will generate. One number per epic. Use the Request Patterns tab to check comparable past work. The historical throughput rate does the rest." },
+    { icon: "📊", title: "Throughput is the planning unit",
+      body: `Each lane completes a consistent number of tickets per week based on Q1 actuals. ${DATA.lanes.map(l=>`${l.name}: ${l.weeklyRate}/week`).join(". ")}. Divide your estimated ticket count by the lane rate to get weeks-to-complete.` },
+    { icon: "🛡", title: "Support reserve is non-discretionary",
+      body: `${DATA.lanes.filter(l=>l.supportPct>30).map(l=>`${l.supportPct}% of ${l.name} capacity`).join(", ")} was consumed by support and maintenance in Q1. This work arrives regardless of what is in the PI plan. Subtract it before making any initiative commitment.` },
+    { icon: "📅", title: "85% of the time is your commitment number",
+      body: "When a stakeholder asks when something will be done, answer with the number where 85% of comparable work has historically completed. That is a defensible commitment backed by real data — not an optimistic guess." },
+    { icon: "⚠️", title: "Risk is visible before the quarter starts",
+      body: "If a lane's committed ticket count exceeds its available capacity, that is a planning conflict — not a mid-quarter surprise. The Forecast Calculator surfaces this at PI Planning so the right conversation happens before the quarter begins." },
+    { icon: "📈", title: "Variability tells you which number to use",
+      body: "High variability patterns have a large gap between median and average. For those, the median is too optimistic for external commitments. Use the 85% number. Consistent patterns can be planned closer to the median." },
+  ].map(c => `
+    <div class="concept-card">
+      <div class="concept-icon">${c.icon}</div>
+      <div class="concept-title">${c.title}</div>
+      <div class="concept-body">${c.body}</div>
+    </div>
+  `).join("");
+
+  const totalAvail = DATA.lanes.reduce((s,l)=>s+l.available,0);
+
+  return `
+    <div class="section-title">The model in plain language</div>
+    <p class="section-sub">
+      This is not a new project management framework. It is a simpler and more honest way to answer
+      three questions: how much can the team take on, how long will it take, and how will we know if we are at risk?
+    </p>
+    <div class="concept-grid">${cards}</div>
+    <div class="summary-banner">
+      <div class="summary-banner-title">The one-paragraph version</div>
+      <div class="summary-banner-body">
+        At the start of each quarter, each lane has a capacity envelope based on what it completed in the
+        prior quarter. Subtract the support reserve — work that will arrive regardless of what is planned.
+        What remains is available for initiative work (${totalAvail} tickets across all lanes in the rolling 90-day window).
+        For each epic, estimate how many tickets it will generate using the Request Patterns tab, and check
+        whether that count fits within the lane's available capacity. If it fits, the commitment is sound.
+        If it does not, reduce scope, defer, or start a resourcing conversation before the quarter begins —
+        not after.
+      </div>
+    </div>
+  `;
+}
+
+/* ── EVENTS ─────────────────────────────────────────── */
+function attachEvents() {
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      activeTab = btn.dataset.tab;
+      render();
+    });
+  });
+  document.querySelectorAll(".lane-card-header").forEach(hdr => {
+    hdr.addEventListener("click", () => {
+      const id = hdr.dataset.lane;
+      openLane = openLane === id ? null : id;
+      render();
+    });
+  });
+}
+
+function handleInput(laneId, value) {
+  calcInputs[laneId] = value;
+  // Re-render just the results area without full re-render
+  const hasAny = DATA.lanes.some(l => calcInputs[l.id] && parseInt(calcInputs[l.id]) > 0);
+  const resultsEl = document.querySelector(".calc-results");
+  if (!resultsEl) return;
+
+  if (!hasAny) {
+    resultsEl.innerHTML = `<div class="calc-empty">Enter ticket counts above to see your capacity forecast</div>`;
+    return;
+  }
+
+  resultsEl.innerHTML = DATA.lanes.map(lane => {
+    const n = parseInt(calcInputs[lane.id]) || 0;
+    if (!n) return "";
+    const weeks  = Math.ceil(n / lane.weeklyRate);
+    const pct    = Math.round((n / lane.available) * 100);
+    const over   = n > lane.available;
+    const risk   = !over && n > lane.available * 0.85;
+    const bg     = over ? "#FDE8E8" : risk ? "#FEF3DC" : "#E8F5EE";
+    const border = over ? "#8B1A1A" : risk ? "#8B5E00" : "#1A6B3A";
+    const status = over ? "Over capacity — reduce scope or defer to next quarter"
+                 : risk ? "At risk — less than 15% buffer remaining"
+                 : "Within capacity";
+    const remain = Math.max(0, lane.available - n);
+    return `
+      <div class="result-card" style="background:${bg};border-left-color:${border}">
+        <div class="result-top">
+          <div>
+            <span class="result-lane">${lane.full}</span>
+            <span class="result-rate">${n} tickets at ${lane.weeklyRate}/week</span>
+          </div>
+          <div class="result-status" style="color:${border}">${status}</div>
+        </div>
+        <div class="result-metrics">
+          <div class="result-metric">
+            <div class="label">Weeks to complete</div>
+            <div class="value">${weeks} <span>of 13 available</span></div>
+          </div>
+          <div class="result-metric">
+            <div class="label">Capacity used</div>
+            <div class="value" style="color:${border}">${Math.min(pct,100)}%</div>
+          </div>
+          <div class="result-metric">
+            <div class="label">Tickets remaining after commit</div>
+            <div class="value">${remain}</div>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" style="width:${Math.min(pct,100)}%;background:${border}"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+window.handleInput = handleInput;
+window.addEventListener("DOMContentLoaded", render);
+</script>
+
+<div id="app"></div>
+</body>
+</html>
